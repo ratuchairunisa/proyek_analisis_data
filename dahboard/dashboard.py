@@ -133,7 +133,7 @@ def create_rfm_df(all_df):
     rfm_df.head()
     return rfm_df
 
-all_df = pd.read_csv("all_data.csv\all_data.csv")
+all_df = pd.read_csv("dahboard/all_data.csv.gz")
 all_df.head()
 
 all_df.info()
