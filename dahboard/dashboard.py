@@ -142,7 +142,7 @@ all_df.info()
 kolom_tidak_digunakan = ['customer_unique_id', 'order_approved_at', 'order_status', 'payment_sequential', 'payment_installments', 'shipping_limit_date',
                          'product_name_lenght', 'product_description_lenght','product_height_cm', 'product_width_cm', 'product_length_cm', 'product_photos_qty',
                          'freight_value', 'order_delivered_carrier_date', 'order_estimated_delivery_date', 'order_item_id', 'price','product_weight_g',
-                         'seller_state', 'geolocation_city', 'geolocation_state']
+                         'seller_state']
 all_df = all_df.drop(columns=kolom_tidak_digunakan) # Pass the list of columns to the 'columns' parameter of the drop method
 
 print("\nDataFrame setelah menghapus kolom yang tidak digunakan:")
