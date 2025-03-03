@@ -1,1 +1,1 @@
-https://share.streamlit.io/user/ratuchairunisa
+https://ratuchairunisa.streamlit.app/
