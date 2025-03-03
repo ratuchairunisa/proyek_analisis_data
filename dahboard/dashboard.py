@@ -50,7 +50,7 @@ def create_rfm_df(all_df):
     rfm_df.head()
     return rfm_df
 
-all_df = pd.read_csv("all_data.csv.gz")
+all_df = pd.read_csv("dahboard/all_data.csv.gz")
 
 # Tentukan kolom yang tidak digunakan
 kolom_tidak_digunakan = ['customer_unique_id', 'order_approved_at', 'order_status', 'payment_sequential', 'payment_installments', 'shipping_limit_date',
