@@ -9,118 +9,80 @@ sns.set(style='dark')
 # Helper function yang dibutuhkan untuk menyiapkan berbagai dataframe
 
 def create_monthly_orders_plot(all_df):
-    monthly_orders_df = all_df.resample(rule='M', on='order_purchase_timestamp').agg({
+    monthly_orders_df = all_df.resample(rule='D', on='order_date').agg({
         "order_id": "nunique",
         "payment_value": "sum"
-    }).reset_index()
+    })
+    monthly_orders_df = monthly_orders_df.reset_index()
     monthly_orders_df.rename(columns={
         "order_id": "order_count",
         "payment_value": "revenue"
     }, inplace=True)
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(monthly_orders_df["order_purchase_timestamp"], monthly_orders_df["order_count"], marker='o', linewidth=2, color="#72BCD4")
-    plt.title("Number of Orders per Month (2018)", loc="center", fontsize=20)
-    plt.xticks(fontsize=10)
-    plt.yticks(fontsize=10)
-    plt.show()
+    
     return monthly_orders_df
 
 def create_monthly_transactions_plot(all_df):
-    all_df['order_purchase_timestamp'] = pd.to_datetime(all_df['order_purchase_timestamp'])
+    sum_order_items_df = all_df.groupby("product_name").quantity_x.sum().sort_values(ascending=False).reset_index()
+    return sum_order_items_df
 
-# Menambahkan kolom tambahan (tahun, bulan, hari, jam)
-    all_df['year'] = all_df['order_purchase_timestamp'].dt.year
-    all_df['month'] = all_df['order_purchase_timestamp'].dt.month
-    all_df['day'] = all_df['order_purchase_timestamp'].dt.day
-    all_df['hour'] = all_df['order_purchase_timestamp'].dt.hour
-    all_df['weekday'] = all_df['order_purchase_timestamp'].dt.weekday
-# Melihat distribusi transaksi per bulan
-    monthly_transactions = all_df.groupby('month').size()
-    monthly_transactions.plot(kind='bar', title='Distribusi Transaksi per Bulan')
-    return monthly_transactions
+def create_bygender_df(df):
+    bygender_df = df.groupby(by="gender").customer_id.nunique().reset_index()
+    bygender_df.rename(columns={
+        "customer_id": "customer_count"
+    }, inplace=True)
+    
+    return bygender_df
 
-def create_payment_distribution_plot(all_df):
-    # Menghitung distribusi pembayaran berdasarkan tipe pembayaran dan bulan
-    payment_distribution = all_df.groupby(['payment_type', 'month']).size().unstack()
+def create_byage_df(df):
+    byage_df = df.groupby(by="age_group").customer_id.nunique().reset_index()
+    byage_df.rename(columns={
+        "customer_id": "customer_count"
+    }, inplace=True)
+    byage_df['age_group'] = pd.Categorical(byage_df['age_group'], ["Youth", "Adults", "Seniors"])
+    
+    return byage_df
 
-    # Membuat plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-    payment_distribution.plot(
-        kind='bar',
-        stacked=True,
-        ax=ax,
-        title='Metode Pembayaran per Bulan'
-    )
-    ax.set_ylabel('Jumlah Transaksi')
-    ax.set_xlabel('Tipe Pembayaran')
-    ax.legend(title='Bulan', loc='upper right')
-    st.pyplot(fig)
+def create_bystate_df(df):
+    bystate_df = df.groupby(by="state").customer_id.nunique().reset_index()
+    bystate_df.rename(columns={
+        "customer_id": "customer_count"
+    }, inplace=True)
+    
+    return bystate_df
 
-    return payment_distribution
-
-# Fungsi untuk membuat plot pembayaran per jam
-def create_hourly_payment_plot(all_df):
-    hourly_payment = all_df.groupby(['hour', 'payment_type']).size().unstack(fill_value=0)
-
-    # Membuat plot menggunakan Matplotlib
-    fig, ax = plt.subplots(figsize=(10, 6))
-    hourly_payment.plot(kind='bar', stacked=True, ax=ax)
-
-    ax.set_title('Metode Pembayaran per Jam', fontsize=16)
-    ax.set_xlabel('Jam', fontsize=12)
-    ax.set_ylabel('Jumlah Transaksi', fontsize=12)
-    ax.legend(title='Metode Pembayaran', fontsize=10)
-
-    st.pyplot(fig)
-    return hourly_payment
-
-def create_rfm_df(all_df):
-    all_df['customer_id'] = pd.factorize(all_df['customer_id'])[0]
-
-    # Lanjutkan proses grupby seperti biasa
-    rfm_df = all_df.groupby(by="customer_id", as_index=False).agg({
-        "order_purchase_timestamp": "max",  # mengambil tanggal order terakhir
-        "order_id": "nunique",  # menghitung jumlah order
-        "payment_value": "sum"  # menghitung jumlah revenue yang dihasilkan
+def create_rfm_df(df):
+    rfm_df = df.groupby(by="customer_id", as_index=False).agg({
+        "order_date": "max", #mengambil tanggal order terakhir
+        "order_id": "nunique",
+        "total_price": "sum"
     })
-
     rfm_df.columns = ["customer_id", "max_order_timestamp", "frequency", "monetary"]
-
-    # Menghitung recency
+    
     rfm_df["max_order_timestamp"] = rfm_df["max_order_timestamp"].dt.date
-    recent_date = all_df["order_purchase_timestamp"].dt.date.max()
+    recent_date = df["order_date"].dt.date.max()
     rfm_df["recency"] = rfm_df["max_order_timestamp"].apply(lambda x: (recent_date - x).days)
-
-    # Menghapus kolom max_order_timestamp
     rfm_df.drop("max_order_timestamp", axis=1, inplace=True)
-    rfm_df.head()
+    
     return rfm_df
 
-all_df = pd.read_csv("dahboard/all_data.csv.gz")
+# Load cleaned data
+all_df = pd.read_csv("all_data.csv")
 
-# Tentukan kolom yang tidak digunakan
-kolom_tidak_digunakan = ['customer_unique_id', 'order_approved_at', 'order_status', 'payment_sequential', 'payment_installments', 'shipping_limit_date',
-                         'product_name_lenght', 'product_description_lenght','product_height_cm', 'product_width_cm', 'product_length_cm', 'product_photos_qty',
-                         'freight_value', 'order_delivered_carrier_date', 'order_estimated_delivery_date', 'order_item_id', 'price','product_weight_g',
-                         'seller_state']
-all_df = all_df.drop(columns=kolom_tidak_digunakan) # Pass the list of columns to the 'columns' parameter of the drop method
-
-
-datetime_columns = ["order_purchase_timestamp", "order_delivered_customer_date"]
-all_df.sort_values(by="order_purchase_timestamp", inplace=True)
+datetime_columns = ["order_date", "delivery_date"]
+all_df.sort_values(by="order_date", inplace=True)
 all_df.reset_index(inplace=True)
 
 for column in datetime_columns:
     all_df[column] = pd.to_datetime(all_df[column])
 
-min_date = all_df["order_purchase_timestamp"].min()
-max_date = all_df["order_purchase_timestamp"].max()
+# Filter data
+min_date = all_df["order_date"].min()
+max_date = all_df["order_date"].max()
 
 with st.sidebar:
     # Menambahkan logo perusahaan
-    st.image("data/logo public e commerce.png")
-
+    st.image("https://github.com/dicodingacademy/assets/raw/main/logo.png")
+    
     # Mengambil start_date & end_date dari date_input
     start_date, end_date = st.date_input(
         label='Rentang Waktu',min_value=min_date,
@@ -128,34 +90,39 @@ with st.sidebar:
         value=[min_date, max_date]
     )
 
-main_df = all_df[(all_df["order_purchase_timestamp"] >= str(start_date)) &
-                (all_df["order_purchase_timestamp"] <= str(end_date))]
+main_df = all_df[(all_df["order_date"] >= str(start_date)) & 
+                (all_df["order_date"] <= str(end_date))]
 
-monthly_orders_df = create_monthly_orders_plot(main_df)
-monthly_transactions = create_monthly_transactions_plot(main_df)
-payment_distribution = create_payment_distribution_plot(main_df)
-hourly_payment = create_hourly_payment_plot(main_df)
+# st.dataframe(main_df)
+
+# # Menyiapkan berbagai dataframe
+daily_orders_df = create_daily_orders_df(main_df)
+sum_order_items_df = create_sum_order_items_df(main_df)
+bygender_df = create_bygender_df(main_df)
+byage_df = create_byage_df(main_df)
+bystate_df = create_bystate_df(main_df)
 rfm_df = create_rfm_df(main_df)
 
-# monthly orders
-st.header('Dashboard Data Penjualan E-Commerce')
-st.subheader('Monthly Orders')
+
+# plot number of daily orders (2021)
+st.header('Dicoding Collection Dashboard :sparkles:')
+st.subheader('Daily Orders')
 
 col1, col2 = st.columns(2)
 
 with col1:
-    total_orders = monthly_orders_df.order_count.sum()
+    total_orders = daily_orders_df.order_count.sum()
     st.metric("Total orders", value=total_orders)
 
 with col2:
-    total_revenue = format_currency(monthly_orders_df.revenue.sum(), "BRL", locale='es_CO')
+    total_revenue = format_currency(daily_orders_df.revenue.sum(), "AUD", locale='es_CO') 
     st.metric("Total Revenue", value=total_revenue)
 
 fig, ax = plt.subplots(figsize=(16, 8))
 ax.plot(
-    monthly_orders_df["order_purchase_timestamp"],
-    monthly_orders_df["order_count"],
-    marker='o',
+    daily_orders_df["order_date"],
+    daily_orders_df["order_count"],
+    marker='o', 
     linewidth=2,
     color="#90CAF9"
 )
@@ -164,33 +131,92 @@ ax.tick_params(axis='x', labelsize=15)
 
 st.pyplot(fig)
 
-# payment distribution
-def main():
-    st.subheader("Distribusi Metode Pembayaran per Bulan")
 
-    # Dummy DataFrame
-    data = {
-        'payment_type': ['Credit Card', 'Debit Card', 'Boleto', 'Voucher', 'Credit Card', 'Debit Card', 'Boleto', 'Voucher'] * 2,
-        'month': ['January', 'February', 'March','April','May', 'June', 'July', 'August', 'September', 'October', 'December'] * 2,
-        'transaction_id': range(1, 17)
-    }
-    all_df = pd.DataFrame(data)
+# Product performance
+st.subheader("Best & Worst Performing Product")
 
-    st.subheader("Data Transaksi")
-    st.dataframe(all_df)
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(35, 15))
 
-    st.subheader("Distribusi Metode Pembayaran")
-    payment_distribution = create_payment_distribution_plot(all_df)
+colors = ["#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
 
-if __name__ == '__main__':
-    main()
+sns.barplot(x="quantity_x", y="product_name", data=sum_order_items_df.head(5), palette=colors, ax=ax[0])
+ax[0].set_ylabel(None)
+ax[0].set_xlabel("Number of Sales", fontsize=30)
+ax[0].set_title("Best Performing Product", loc="center", fontsize=50)
+ax[0].tick_params(axis='y', labelsize=35)
+ax[0].tick_params(axis='x', labelsize=30)
 
-# payment type per hour
-st.subheader("Analisis Metode Pembayaran per Jam")
-hourly_payment = create_hourly_payment_plot(main_df)
+sns.barplot(x="quantity_x", y="product_name", data=sum_order_items_df.sort_values(by="quantity_x", ascending=True).head(5), palette=colors, ax=ax[1])
+ax[1].set_ylabel(None)
+ax[1].set_xlabel("Number of Sales", fontsize=30)
+ax[1].invert_xaxis()
+ax[1].yaxis.set_label_position("right")
+ax[1].yaxis.tick_right()
+ax[1].set_title("Worst Performing Product", loc="center", fontsize=50)
+ax[1].tick_params(axis='y', labelsize=35)
+ax[1].tick_params(axis='x', labelsize=30)
+
+st.pyplot(fig)
+
+# customer demographic
+st.subheader("Customer Demographics")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    fig, ax = plt.subplots(figsize=(20, 10))
+
+    sns.barplot(
+        y="customer_count", 
+        x="gender",
+        data=bygender_df.sort_values(by="customer_count", ascending=False),
+        palette=colors,
+        ax=ax
+    )
+    ax.set_title("Number of Customer by Gender", loc="center", fontsize=50)
+    ax.set_ylabel(None)
+    ax.set_xlabel(None)
+    ax.tick_params(axis='x', labelsize=35)
+    ax.tick_params(axis='y', labelsize=30)
+    st.pyplot(fig)
+
+with col2:
+    fig, ax = plt.subplots(figsize=(20, 10))
+    
+    colors = ["#D3D3D3", "#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
+
+    sns.barplot(
+        y="customer_count", 
+        x="age_group",
+        data=byage_df.sort_values(by="age_group", ascending=False),
+        palette=colors,
+        ax=ax
+    )
+    ax.set_title("Number of Customer by Age", loc="center", fontsize=50)
+    ax.set_ylabel(None)
+    ax.set_xlabel(None)
+    ax.tick_params(axis='x', labelsize=35)
+    ax.tick_params(axis='y', labelsize=30)
+    st.pyplot(fig)
+
+fig, ax = plt.subplots(figsize=(20, 10))
+colors = ["#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
+sns.barplot(
+    x="customer_count", 
+    y="state",
+    data=bystate_df.sort_values(by="customer_count", ascending=False),
+    palette=colors,
+    ax=ax
+)
+ax.set_title("Number of Customer by States", loc="center", fontsize=30)
+ax.set_ylabel(None)
+ax.set_xlabel(None)
+ax.tick_params(axis='y', labelsize=20)
+ax.tick_params(axis='x', labelsize=15)
+st.pyplot(fig)
 
 
-# RFM analisis
+# Best Customer Based on RFM Parameters
 st.subheader("Best Customer Based on RFM Parameters")
 
 col1, col2, col3 = st.columns(3)
@@ -204,7 +230,7 @@ with col2:
     st.metric("Average Frequency", value=avg_frequency)
 
 with col3:
-    avg_frequency = format_currency(rfm_df.monetary.mean(), "AUD", locale='es_CO')
+    avg_frequency = format_currency(rfm_df.monetary.mean(), "AUD", locale='es_CO') 
     st.metric("Average Monetary", value=avg_frequency)
 
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(35, 15))
@@ -232,3 +258,5 @@ ax[2].tick_params(axis='y', labelsize=30)
 ax[2].tick_params(axis='x', labelsize=35)
 
 st.pyplot(fig)
+
+st.caption('Copyright © Dicoding 2023')
