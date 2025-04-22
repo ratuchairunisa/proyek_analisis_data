@@ -1,5 +1,7 @@
 # Collection Dashboard
 
+Repositori ini berisi dokumentasi proses dan hasil proyek analisis data📝📊
+
 ### Setup Environment - Anaconda
     conda create --name main-ds python=3.9
     conda activate main-ds
